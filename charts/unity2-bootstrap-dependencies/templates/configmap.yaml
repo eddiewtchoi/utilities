@@ -1,0 +1,23 @@
+{{- $Files := .Files }}
+{{- $processedDict := dict -}}
+{{- range $path, $bytes := .Files.Glob "configmaps/**" }}
+{{- $name := base (dir $path) }}
+{{- if not (hasKey $processedDict $name) -}}
+{{ $_ := set $processedDict $name "true" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}
+data:
+{{- range $child, $_ := $.Files.Glob (printf "configmaps/%s/*" $name) }}
+  {{- if not (hasSuffix ".bin" $child) }}
+  {{ $child | base }}: |-
+    {{ $.Files.Get $child }}
+  {{- end -}}
+{{- end -}}
+binaryData:
+{{- range $child, $_ := $.Files.Glob (printf "configmaps/%s/*.bin" $name) }}
+  {{ regexReplaceAll ".bin$" ($child | base) "" }}: {{ $.Files.Get $child | b64enc }}
+{{- end -}}
+{{- end -}}
+{{- end -}}
